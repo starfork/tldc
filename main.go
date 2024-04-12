@@ -18,7 +18,6 @@ func main() {
 	domains := map[string][]string{}
 	for _, v := range dms {
 		url, err := parse(v)
-		fmt.Println(err)
 		if err == nil {
 			domains[url.TLD] = append(domains[url.TLD], v)
 		}
