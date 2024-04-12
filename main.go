@@ -2,29 +2,44 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/net/publicsuffix"
+
+	"github.com/xuri/excelize/v2"
+)
+
+var (
+	urlFile = flag.String("f", "url.xlsx", "url file ")
+	sheet   = flag.String("sheet", "Sheet1", "sheet name")
+	sp      = flag.String("sp", "筛选", "save path")
 )
 
 func main() {
-	dms, err := readlines("./url.txt")
+
+	flag.Parse()
+	var domains map[string][]string
+	var err error
+	ext := filepath.Ext(*urlFile)
+	if ext == ".txt" {
+		domains, err = ReadFromExcel(*urlFile)
+	} else if ext == ".xlsx" {
+		domains, err = ReadFromTxt(*urlFile)
+	} else {
+		panic("unsupport file")
+	}
+
 	if err != nil {
 		panic(err)
 	}
-	domains := map[string][]string{}
-	for _, v := range dms {
-		url, err := parse(v)
-		if err == nil {
-			domains[url.TLD] = append(domains[url.TLD], v)
-		}
-	}
 
 	for k, v := range domains {
-		f, _ := os.OpenFile(k+".txt", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+		f, _ := os.OpenFile(*sp+"/"+k+".txt", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 		defer f.Close()
 		f.Write([]byte(strings.Join(v, "\n")))
 	}
@@ -38,21 +53,52 @@ type URL struct {
 	*url.URL
 }
 
+func ReadFromExcel(path string) (map[string][]string, error) {
+	f, err := excelize.OpenFile(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	rows, err := f.GetRows(*sheet)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	domains := map[string][]string{}
+	for _, row := range rows {
+		if row[0] != "" {
+			url, err := parse(row[0])
+			if err == nil {
+				domains[url.TLD] = append(domains[url.TLD], row[0])
+			}
+		}
+	}
+	return domains, nil
+}
+
 // ReadLines reads all lines of the file.
-func readlines(path string) ([]string, error) {
+func ReadFromTxt(path string) (map[string][]string, error) {
 	file, err := os.Open(path)
+	fmt.Println(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	var lines []string
+	domains := map[string][]string{}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
+		v := scanner.Text()
+		if v != "" {
+			url, err := parse(v)
+			if err == nil {
+				domains[url.TLD] = append(domains[url.TLD], v)
+			}
+		}
 	}
 
-	return lines, scanner.Err()
+	return domains, scanner.Err()
 }
 
 // Parse mirrors net/url.Parse except instead it returns
