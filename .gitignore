@@ -1,5 +1,6 @@
+.DS_Store
 *.txt
 *.xls
 *.xlsx
 *.exe
-tld-classify
+tldc

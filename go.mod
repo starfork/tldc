@@ -1,4 +1,4 @@
-module github.com/starfork/tld-classify
+module github.com/starfork/tldc
 
 go 1.21.4
 

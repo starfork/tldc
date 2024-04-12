@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	urlFile = flag.String("f", "url.xlsx", "url file ")
+	urlFile = flag.String("f", "./url.xlsx", "url file ")
 	sheet   = flag.String("sheet", "Sheet1", "sheet name")
-	sp      = flag.String("sp", "筛选", "save path")
+	sp      = flag.String("sp", "class", "save path")
 )
 
 func main() {
@@ -54,6 +54,7 @@ type URL struct {
 }
 
 func ReadFromExcel(path string) (map[string][]string, error) {
+
 	f, err := excelize.OpenFile(path)
 	if err != nil {
 		return nil, err
