@@ -26,9 +26,9 @@ func main() {
 	var domains map[string][]string
 	var err error
 	ext := filepath.Ext(*urlFile)
-	if ext == ".txt" {
+	if ext == ".xlsx" {
 		domains, err = ReadFromExcel(*urlFile)
-	} else if ext == ".xlsx" {
+	} else if ext == ".txt" {
 		domains, err = ReadFromTxt(*urlFile)
 	} else {
 		panic("unsupport file")
@@ -80,7 +80,6 @@ func ReadFromExcel(path string) (map[string][]string, error) {
 // ReadLines reads all lines of the file.
 func ReadFromTxt(path string) (map[string][]string, error) {
 	file, err := os.Open(path)
-	fmt.Println(path)
 	if err != nil {
 		return nil, err
 	}
