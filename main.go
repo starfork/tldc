@@ -6,42 +6,34 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"golang.org/x/net/publicsuffix"
-
-	"github.com/xuri/excelize/v2"
 )
 
 var (
-	urlFile = flag.String("f", "./url.xlsx", "url file ")
-	sheet   = flag.String("sheet", "Sheet1", "sheet name")
+	urlFile = flag.String("f", "./url.txt", "url file ")
 	sp      = flag.String("sp", "class", "save path")
 )
 
 func main() {
 
 	flag.Parse()
-	var domains map[string][]string
-	var err error
-	ext := filepath.Ext(*urlFile)
-	if ext == ".xlsx" {
-		domains, err = ReadFromExcel(*urlFile)
-	} else if ext == ".txt" {
-		domains, err = ReadFromTxt(*urlFile)
-	} else {
-		panic("unsupport file")
-	}
+
+	domains, err := ReadFromTxt(*urlFile)
 
 	if err != nil {
 		panic(err)
 	}
+	os.Mkdir(*sp, 0755)
+	af, _ := os.OpenFile(*sp+"/all.txt", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	defer af.Close()
 
 	for k, v := range domains {
 		f, _ := os.OpenFile(*sp+"/"+k+".txt", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 		defer f.Close()
 		f.Write([]byte(strings.Join(v, "\n")))
+		af.Write([]byte("\n" + strings.Join(v, "\n")))
 	}
 
 }
@@ -51,31 +43,6 @@ type URL struct {
 	Subdomain, Domain, TLD, Port string
 	ICANN                        bool
 	*url.URL
-}
-
-func ReadFromExcel(path string) (map[string][]string, error) {
-
-	f, err := excelize.OpenFile(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	rows, err := f.GetRows(*sheet)
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
-	}
-	domains := map[string][]string{}
-	for _, row := range rows {
-		if row[0] != "" {
-			url, err := parse(row[0])
-			if err == nil {
-				domains[url.TLD] = append(domains[url.TLD], row[0])
-			}
-		}
-	}
-	return domains, nil
 }
 
 // ReadLines reads all lines of the file.
@@ -91,9 +58,11 @@ func ReadFromTxt(path string) (map[string][]string, error) {
 	for scanner.Scan() {
 		v := scanner.Text()
 		if v != "" {
-			url, err := parse(v)
+			tmp := strings.Split(v, "#")
+
+			url, err := parse(tmp[0])
 			if err == nil {
-				domains[url.TLD] = append(domains[url.TLD], v)
+				domains[url.TLD] = append(domains[url.TLD], tmp[0])
 			}
 		}
 	}
