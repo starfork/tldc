@@ -23,10 +23,18 @@ func main() {
 	domains, err := ReadFromTxt(*urlFile)
 
 	if err != nil {
-		panic(err)
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
-	os.Mkdir(*sp, 0755)
-	af, _ := os.OpenFile(*sp+"/all.txt", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	if err := os.MkdirAll(*sp, 0755); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	af, err := os.OpenFile(*sp+"/all.txt", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
 	defer af.Close()
 
 	for k, v := range domains {
