@@ -4,28 +4,46 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/net/publicsuffix"
 )
 
 var (
-	urlFile = flag.String("f", "./url.txt", "url file ")
+	urlFile = flag.String("f", "", "url file ")
+	urlPath = flag.String("p", "", "url path ")
 	sp      = flag.String("sp", "class", "save path")
+	sep     = flag.String("sep", "#", "sep")
 )
 
 func main() {
 
+	//fmt.Println(strings.Join([]string{u.Subdomain, u.Domain, u.TLD}, "."))
+	//fmt.Println(u.String())
 	flag.Parse()
-
-	domains, err := ReadFromTxt(*urlFile)
-
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+	domains := map[string][]string{}
+	var err error
+	if *urlFile != "" {
+		domains, err = ReadFromTxt(*urlFile)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
 	}
+	if *urlPath != "" {
+		filepath.Walk(*urlPath, func(path string, info fs.FileInfo, err error) error {
+			if !info.IsDir() {
+				fmt.Println(path)
+				domains, _ = ReadFromTxt(path, domains)
+			}
+			return nil
+		})
+	}
+
 	if err := os.MkdirAll(*sp, 0755); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
@@ -54,7 +72,7 @@ type URL struct {
 }
 
 // ReadLines reads all lines of the file.
-func ReadFromTxt(path string) (map[string][]string, error) {
+func ReadFromTxt(path string, dms ...map[string][]string) (map[string][]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -62,15 +80,19 @@ func ReadFromTxt(path string) (map[string][]string, error) {
 	defer file.Close()
 
 	domains := map[string][]string{}
+	if len(dms) > 0 {
+		domains = dms[0]
+	}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		v := scanner.Text()
 		if v != "" {
-			tmp := strings.Split(v, "#")
-
-			url, err := parse(tmp[0])
-			if err == nil {
-				domains[url.TLD] = append(domains[url.TLD], tmp[0])
+			tmp := strings.Split(v, *sep)
+			if len(tmp) > 0 && tmp[0] != "" {
+				url, err := parse(tmp[0])
+				if err == nil {
+					domains[url.TLD] = append(domains[url.TLD], tmp[0])
+				}
 			}
 		}
 	}
@@ -81,6 +103,9 @@ func ReadFromTxt(path string) (map[string][]string, error) {
 // Parse mirrors net/url.Parse except instead it returns
 // a tld.URL, which contains extra fields.
 func parse(s string) (*URL, error) {
+	// if !strings.Contains(s, "http") {
+	// 	s = "http://" + s
+	// }
 	url, err := url.Parse(s)
 	if err != nil {
 		return nil, err
