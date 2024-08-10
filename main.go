@@ -5,39 +5,49 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	
 
+	"github.com/linvon/cuckoo-filter"
 	"golang.org/x/net/publicsuffix"
 )
 
 var (
-	urlFile = flag.String("f", "", "url file ")
+	urlFile = flag.String("f", "", "url file ") 
 	urlPath = flag.String("p", "", "url path ")
 	sp      = flag.String("sp", "class", "save path")
 	sep     = flag.String("sep", "#", "sep")
+
+	cf *cuckoo.Filter
 )
 
 func main() {
 
-	//fmt.Println(strings.Join([]string{u.Subdomain, u.Domain, u.TLD}, "."))
-	//fmt.Println(u.String())
 	flag.Parse()
 	domains := map[string][]string{}
+
+	cf = cuckoo.NewFilter(4, 12, 39000000, cuckoo.TableTypePacked)
+
 	var err error
-	if *urlFile != "" {
-		domains, err = ReadFromTxt(*urlFile)
-		if err != nil {
-			fmt.Println(err.Error())
-			os.Exit(1)
+    if *urlFile != "" {
+		arr:=strings.Split(*urlFile,",")
+		for _, v := range arr {
+			domains, err = ReadFromTxt(v, domains)
+			if err != nil {
+				log.Println(err.Error())
+				os.Exit(1)
+			}
 		}
 	}
+	
+	
 	if *urlPath != "" {
 		filepath.Walk(*urlPath, func(path string, info fs.FileInfo, err error) error {
 			if !info.IsDir() {
-				fmt.Println(path)
 				domains, _ = ReadFromTxt(path, domains)
 			}
 			return nil
@@ -45,12 +55,12 @@ func main() {
 	}
 
 	if err := os.MkdirAll(*sp, 0755); err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		os.Exit(1)
 	}
 	af, err := os.OpenFile(*sp+"/all.txt", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		os.Exit(1)
 	}
 	defer af.Close()
@@ -78,6 +88,7 @@ func ReadFromTxt(path string, dms ...map[string][]string) (map[string][]string, 
 		return nil, err
 	}
 	defer file.Close()
+	fmt.Println("read text from ",path)
 
 	domains := map[string][]string{}
 	if len(dms) > 0 {
@@ -86,15 +97,24 @@ func ReadFromTxt(path string, dms ...map[string][]string) (map[string][]string, 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		v := scanner.Text()
-		if v != "" {
-			tmp := strings.Split(v, *sep)
-			if len(tmp) > 0 && tmp[0] != "" {
-				url, err := parse(tmp[0])
-				if err == nil {
-					domains[url.TLD] = append(domains[url.TLD], tmp[0])
-				}
-			}
+		if v == "" {
+			continue
 		}
+		tmp := strings.Split(v, *sep)
+		if len(tmp) > 0 && tmp[0] != "" {
+			url, err := parse(tmp[0])
+			if err != nil {
+				continue
+			}
+			if cf.Contain([]byte(tmp[0])) {
+				continue
+			}
+			//log.Println("add domain", tmp[0])
+			cf.Add([]byte(tmp[0]))
+			domains[url.TLD] = append(domains[url.TLD], tmp[0])
+
+		}
+
 	}
 
 	return domains, scanner.Err()
