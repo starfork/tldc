@@ -10,45 +10,63 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	
 
 	"github.com/linvon/cuckoo-filter"
 	"golang.org/x/net/publicsuffix"
 )
 
 var (
-	urlFile = flag.String("f", "", "url file ") 
+	//分割文件
+	urlFile = flag.String("f", "", "url file ")
+	//分割文件所在路径
 	urlPath = flag.String("p", "", "url path ")
-	sp      = flag.String("sp", "class", "save path")
-	sep     = flag.String("sep", "#", "sep")
+	//结果存储路径
+	sp = flag.String("sp", "class", "save path")
+	//分隔符
+	sep = flag.String("sep", "#", "sep")
+	//保留后缀，默认全都要
+	tld = flag.String("tld", "", "tld")
+	//保留二级域名
+	sub = flag.String("sub", "", "sub")
 
 	cf *cuckoo.Filter
+
+	tldArr = []string{}
+	subArr = []string{}
+
+	domains = map[string][]string{}
 )
 
 func main() {
 
 	flag.Parse()
-	domains := map[string][]string{}
+	domains = map[string][]string{}
+
+	if *tld != "" {
+		tldArr = strings.Split(*tld, ",")
+	}
+	if *sub != "" {
+		subArr = strings.Split(*sub, ",")
+	}
 
 	cf = cuckoo.NewFilter(4, 12, 39000000, cuckoo.TableTypePacked)
 
 	var err error
-    if *urlFile != "" {
-		arr:=strings.Split(*urlFile,",")
+	if *urlFile != "" {
+		arr := strings.Split(*urlFile, ",")
 		for _, v := range arr {
-			domains, err = ReadFromTxt(v, domains)
+			domains, err = ReadFromTxt(v)
 			if err != nil {
 				log.Println(err.Error())
 				os.Exit(1)
 			}
 		}
 	}
-	
-	
+
 	if *urlPath != "" {
 		filepath.Walk(*urlPath, func(path string, info fs.FileInfo, err error) error {
 			if !info.IsDir() {
-				domains, _ = ReadFromTxt(path, domains)
+				domains, _ = ReadFromTxt(path)
 			}
 			return nil
 		})
@@ -82,18 +100,18 @@ type URL struct {
 }
 
 // ReadLines reads all lines of the file.
-func ReadFromTxt(path string, dms ...map[string][]string) (map[string][]string, error) {
+func ReadFromTxt(path string) (map[string][]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
-	fmt.Println("read text from ",path)
+	fmt.Println("read text from ", path)
 
-	domains := map[string][]string{}
-	if len(dms) > 0 {
-		domains = dms[0]
-	}
+	// domains := map[string][]string{}
+	// if len(dms) > 0 {
+	// 	domains = dms[0]
+	// }
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		v := scanner.Text()
@@ -106,6 +124,14 @@ func ReadFromTxt(path string, dms ...map[string][]string) (map[string][]string, 
 			if err != nil {
 				continue
 			}
+
+			if len(tldArr) > 0 && !inArray(tldArr, url.TLD) {
+				continue
+			}
+			if len(subArr) > 0 && !inArray(tldArr, url.Subdomain) {
+				continue
+			}
+
 			if cf.Contain([]byte(tmp[0])) {
 				continue
 			}
@@ -178,4 +204,14 @@ func domainPort(host string) (string, string) {
 	//will only land here if the string is all digits,
 	//net/url should prevent that from happening
 	return host, ""
+}
+
+func inArray(arr []string, key string) bool {
+
+	for _, v := range arr {
+		if v == key {
+			return true
+		}
+	}
+	return false
 }
