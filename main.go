@@ -112,6 +112,7 @@ func ReadFromTxt(path string) (map[string][]string, error) {
 	// if len(dms) > 0 {
 	// 	domains = dms[0]
 	// }
+
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		v := scanner.Text()
@@ -126,9 +127,11 @@ func ReadFromTxt(path string) (map[string][]string, error) {
 			}
 
 			if len(tldArr) > 0 && !inArray(tldArr, url.TLD) {
+
 				continue
 			}
 			if url.Subdomain != "" && len(subArr) > 0 && !inArray(subArr, url.Subdomain) {
+				fmt.Println(tmp[0])
 				continue
 			}
 
