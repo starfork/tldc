@@ -128,7 +128,7 @@ func ReadFromTxt(path string) (map[string][]string, error) {
 			if len(tldArr) > 0 && !inArray(tldArr, url.TLD) {
 				continue
 			}
-			if len(subArr) > 0 && !inArray(tldArr, url.Subdomain) {
+			if url.Subdomain != "" && len(subArr) > 0 && !inArray(subArr, url.Subdomain) {
 				continue
 			}
 
