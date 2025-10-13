@@ -49,7 +49,10 @@ func main() {
 		subArr = strings.Split(*sub, ",")
 	}
 
-	cf = cuckoo.NewFilter(4, 12, 39000000, cuckoo.TableTypePacked)
+	var tagsPerBucket uint = 8
+	var bitsPerItem uint = 24
+	var maxNumKeys uint = 1.2e7 // 1200w
+	cf = cuckoo.NewFilter(tagsPerBucket, bitsPerItem, maxNumKeys, cuckoo.TableTypePacked)
 
 	var err error
 	if *urlFile != "" {
